@@ -5,7 +5,8 @@ version: 2.1
 # Define a job to be invoked later in a workflow.
 # See: https://circleci.com/docs/2.0/configuration-reference/#jobs
 jobs:
-  exercise-1:
+  test-rubocop:
+    working_directory: ~/holistics
     # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
     # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
     docker:
@@ -14,9 +15,34 @@ jobs:
     # See: https://circleci.com/docs/2.0/configuration-reference/#steps
     steps:
       - checkout
+      - restore_cache:
+          key: gem-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
       - run:
-          name: "Install packages via `bundle`"
-          command: "bundle install"
+          name: "Install packages via `bundle` with `path` to cached directory"
+          command: "bundle install --path vendor/bundle"
+      - save_cache:
+          key: gem-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
+          paths:
+            - vendor/bundle
+      - run:
+          name: "Check format"
+          command: "bundle exec rubocop"
+
+  test-rspec:
+    working_directory: ~/holistics
+    docker:
+      - image: cimg/ruby:3.1.0
+    steps:
+      - checkout
+      - restore_cache:
+          key: gem-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
+      - run:
+          name: "Install packages via `bundle` with `path` to cached directory"
+          command: "bundle install --path vendor/bundle"
+      - save_cache:
+          key: gem-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
+          paths:
+            - vendor/bundle
       - run:
           name: "Test `test1.rb`"
           command: "bundle exec rspec ./spec/test1_spec.rb"
@@ -26,4 +52,7 @@ jobs:
 workflows:
   exercise-1:
     jobs:
-      - exercise-1
+      - test-rubocop
+      - test-rspec:
+          requires:
+            - test-rubocop
